@@ -1,5 +1,11 @@
 package models
 
+type Link struct {
+	OriginalURL   string
+	DesiredLength uint8
+	Alias         string
+}
+
 const (
 	StatusPending            = "pending"
 	StatusCanceled           = "canceled"
