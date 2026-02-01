@@ -1,7 +1,7 @@
 CREATE TABLE IF NOT EXISTS links (
     id             INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     original_link  TEXT NOT NULL,
-    short_link     TEXT NOT NULL UNIQUE,
+    short_link     TEXT UNIQUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -9,6 +9,5 @@ CREATE TABLE IF NOT EXISTS visits (
     id          INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     link_id     INTEGER NOT NULL REFERENCES links(id) ON DELETE CASCADE,
     user_agent  TEXT,
-    ip_address  VARCHAR(45),
     visited_at  TIMESTAMP NOT NULL DEFAULT NOW()
 );

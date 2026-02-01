@@ -1,28 +1,17 @@
 package models
 
 type Link struct {
-	OriginalURL   string
-	DesiredLength uint8
-	Alias         string
+	OriginalURL string
+	Alias       string
 }
 
-const (
-	StatusPending            = "pending"
-	StatusCanceled           = "canceled"
-	StatusFailedToSendInTime = "failed to send in time"
-	StatusFailed             = "failed to send"
-	StatusLate               = "running late"
-	StatusSent               = "sent"
-)
+type ShortLink struct {
+	ShortURL string
+}
 
-const (
-	Email    = "email"
-	Stdout   = "stdout"
-	Telegram = "telegram"
-)
-
-const (
-	MaxEmailLength   = 254
-	MaxSubjectLength = 254
-	MaxMessageLength = 254
-)
+type VisitStats struct {
+	Count       int            `json:"count"`
+	ByDay       map[string]int `json:"by_day"`
+	ByMonth     map[string]int `json:"by_month"`
+	ByUserAgent map[string]int `json:"by_user_agent"`
+}

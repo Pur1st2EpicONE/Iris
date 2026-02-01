@@ -1,4 +1,4 @@
-.PHONY: all up down db-load app migrate-up migrate-down integration helper-compose-up migrate-helper-compose-up lint
+.PHONY: all up down db-load app migrate-up migrate-down integration helper-compose-up migrate-helper-compose-up lint reset
 
 -include .env
 
@@ -7,7 +7,7 @@ all: up
 up: local-compose db-load migrate-up app
 
 local-compose:
-	@docker compose -f docker-compose.yaml up -d postgres rabbitmq redis
+	@docker compose -f docker-compose.yaml up -d postgres
 
 down:
 	@docker compose -f docker-compose.yaml down
@@ -17,6 +17,12 @@ db-load:
 
 app:
 	go run ./cmd/iris/main.go -o app
+
+reset:
+	docker volume rm iris_postgres_data
+
+postgres:
+	docker compose exec postgres psql -U ${DB_USER} -d iris-db
 
 migrate-up:
 	@for i in $$(seq 1 10); do \

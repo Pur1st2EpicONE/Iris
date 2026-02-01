@@ -1,8 +1,8 @@
 package impl
 
 import (
+	"Iris/internal/errs"
 	"Iris/internal/models"
-	"errors"
 	"net/url"
 )
 
@@ -12,12 +12,6 @@ func validateLink(link models.Link) error {
 		return err
 	}
 
-	if link.DesiredLength > 0 {
-		if err := validateLength(link.DesiredLength); err != nil {
-			return err
-		}
-	}
-
 	if link.Alias != "" {
 		if err := validateAlias(link.Alias); err != nil {
 			return err
@@ -25,43 +19,37 @@ func validateLink(link models.Link) error {
 	}
 
 	return nil
+
 }
 
 func validateOriginalURL(link string) error {
 
 	u, err := url.ParseRequestURI(link)
 	if err != nil {
-		return errors.New("original_url is not a valid URL")
+		return errs.ErrInvalidOriginalURL
 	}
 
 	if u.Scheme != "http" && u.Scheme != "https" {
-		return errors.New("original_url must use http or https scheme")
+		return errs.ErrOriginalURLScheme
 	}
 
 	if u.Host == "" {
-		return errors.New("original_url must contain host")
+		return errs.ErrOriginalURLHost
 	}
 
 	return nil
 
-}
-
-func validateLength(length uint8) error {
-	if length > 100 {
-		return errors.New("desired link length exceeds limits")
-	}
-	return nil
 }
 
 func validateAlias(alias string) error {
 
 	if len(alias) > 32 {
-		return errors.New("custom_alias length must be less than 32 runes")
+		return errs.ErrAliasTooLong
 	}
 
 	for _, r := range alias {
 		if !isAllowedAliasChar(r) {
-			return errors.New("custom_alias contains invalid characters")
+			return errs.ErrAliasInvalidChars
 		}
 	}
 
