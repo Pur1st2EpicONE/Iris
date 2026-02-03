@@ -13,8 +13,8 @@ server:
 
 # Cache (Redis) configuration
 cache:
-  host: redis                                  # Redis host
-  port: "6379"                                 # Redis port; must match the exposed port in docker-compose.full.yaml
+  host: localhost                              # Redis host
+  port: "6379"                                 # Redis port
   max_memory: 256mb                            # Maximum memory Redis is allowed to use
   policy: allkeys-lru                          # Eviction policy when max memory is reached
   expiration_time: 30s                         # Default TTL for cached entries
@@ -32,7 +32,6 @@ database:
   max_open_conns: 20                           # Maximum number of open database connections
   max_idle_conns: 10                           # Maximum number of idle connections
   conn_max_lifetime: 30m                       # Maximum lifetime of a database connection
-  recover_limit: 1000                          # Max number of notifications to recover and re-queue after DB/broker outage
   query_retry_strategy:
     attempts: 3                                # Number of retry attempts for failed DB queries
     delay: 200ms                               # Initial delay between retries

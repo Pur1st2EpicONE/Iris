@@ -1,6 +1,7 @@
 package app
 
 import (
+	"Iris/internal/cache"
 	"Iris/internal/config"
 	"Iris/internal/handler"
 	"Iris/internal/logger"
@@ -22,7 +23,7 @@ type App struct {
 	server  server.Server
 	ctx     context.Context
 	cancel  context.CancelFunc
-	//cache   cache.Cache
+	cache   cache.Cache
 	storage repository.Storage
 }
 
@@ -40,12 +41,12 @@ func Boot() *App {
 		logger.LogFatal("app — failed to connect to database", err, "layer", "app")
 	}
 
-	// cache, err := connectCache(logger, config.Cache)
-	// if err != nil {
-	// 	logger.LogFatal("app — failed to connect to cache", err, "layer", "app")
-	// }
+	cache, err := connectCache(logger, config.Cache)
+	if err != nil {
+		logger.LogFatal("app — failed to connect to cache", err, "layer", "app")
+	}
 
-	return wireApp(db, logger, logFile, config)
+	return wireApp(db, cache, logger, logFile, config)
 
 }
 
@@ -58,20 +59,20 @@ func connectDB(logger logger.Logger, config config.Storage) (*dbpg.DB, error) {
 	return db, nil
 }
 
-// func connectCache(logger logger.Logger, config config.Cache) (cache.Cache, error) {
-// 	cache, err := cache.Connect(logger, config)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	logger.LogInfo("app — connected to cache", "layer", "app")
-// 	return cache, nil
-// }
+func connectCache(logger logger.Logger, config config.Cache) (cache.Cache, error) {
+	cache, err := cache.Connect(logger, config)
+	if err != nil {
+		return nil, err
+	}
+	logger.LogInfo("app — connected to cache", "layer", "app")
+	return cache, nil
+}
 
-func wireApp(db *dbpg.DB, logger logger.Logger, logFile *os.File, config config.Config) *App {
+func wireApp(db *dbpg.DB, cache cache.Cache, logger logger.Logger, logFile *os.File, config config.Config) *App {
 
 	ctx, cancel := newContext(logger)
 	storge := repository.NewStorage(logger, config.Storage, db)
-	service := service.NewService(logger, storge)
+	service := service.NewService(logger, cache, storge)
 	handler := handler.NewHandler(service)
 	server := server.NewServer(logger, config.Server, handler)
 
@@ -81,6 +82,7 @@ func wireApp(db *dbpg.DB, logger logger.Logger, logFile *os.File, config config.
 		server:  server,
 		ctx:     ctx,
 		cancel:  cancel,
+		cache:   cache,
 		storage: storge,
 	}
 
@@ -120,7 +122,7 @@ func (a *App) Stop() {
 
 	a.server.Shutdown()
 
-	//a.cache.Close()
+	a.cache.Close()
 	a.storage.Close()
 
 	if a.logFile != nil && a.logFile != os.Stdout {

@@ -18,7 +18,12 @@ func (s *Storage) SaveWithAlias(ctx context.Context, link models.Link) error {
 	INSERT INTO links (original_link, short_link)
 	VALUES ($1, $2)`
 
-	_, err := s.db.ExecWithRetry(ctx, retry.Strategy{Attempts: 2}, query, link.OriginalURL, link.Alias)
+	_, err := s.db.ExecWithRetry(ctx, retry.Strategy{
+		Attempts: s.config.QueryRetryStrategy.Attempts,
+		Delay:    s.config.QueryRetryStrategy.Delay,
+		Backoff:  s.config.QueryRetryStrategy.Backoff,
+	}, query, link.OriginalURL, link.Alias)
+
 	if err != nil {
 		var pqErr *pq.Error
 		if errors.As(err, &pqErr) && pqErr.Code == pgerrcode.UniqueViolation {
@@ -28,4 +33,5 @@ func (s *Storage) SaveWithAlias(ctx context.Context, link models.Link) error {
 	}
 
 	return nil
+
 }

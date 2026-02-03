@@ -6,19 +6,28 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+
+	"github.com/wb-go/wbf/retry"
 )
 
 func (s *Storage) GetAnalytics(ctx context.Context, shortURL string) (*models.VisitStats, error) {
 
-	var linkID int64
-	err := s.db.QueryRowContext(ctx, `
-		
-	SELECT id
-	FROM links
-	WHERE short_link = $1`,
+	row, err := s.db.QueryRowWithRetry(ctx, retry.Strategy{
+		Attempts: s.config.QueryRetryStrategy.Attempts,
+		Delay:    s.config.QueryRetryStrategy.Delay,
+		Backoff:  s.config.QueryRetryStrategy.Backoff}, `
 
-		shortURL).Scan(&linkID)
+		SELECT id
+		FROM links
+		WHERE short_link = $1`,
+
+		shortURL)
 	if err != nil {
+		return nil, err
+	}
+
+	var linkID int64
+	if err := row.Scan(&linkID); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, errs.ErrLinkNotFound
 		}
@@ -31,7 +40,10 @@ func (s *Storage) GetAnalytics(ctx context.Context, shortURL string) (*models.Vi
 		ByMonth:     make(map[string]int),
 	}
 
-	rows, err := s.db.QueryContext(ctx, `
+	rows, err := s.db.QueryWithRetry(ctx, retry.Strategy{
+		Attempts: s.config.QueryRetryStrategy.Attempts,
+		Delay:    s.config.QueryRetryStrategy.Delay,
+		Backoff:  s.config.QueryRetryStrategy.Backoff}, `
 		
 	SELECT
 	COUNT(*) OVER() AS total_count, 

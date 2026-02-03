@@ -1,6 +1,7 @@
 package service
 
 import (
+	"Iris/internal/cache"
 	"Iris/internal/logger"
 	"Iris/internal/models"
 	"Iris/internal/repository"
@@ -15,6 +16,6 @@ type Service interface {
 	GetAnalytics(ctx context.Context, shortURL string) (*models.VisitStats, error)
 }
 
-func NewService(logger logger.Logger, storage repository.Storage) Service {
-	return impl.NewService(logger, storage)
+func NewService(logger logger.Logger, cache cache.Cache, storage repository.Storage) Service {
+	return impl.NewService(logger, cache, storage)
 }

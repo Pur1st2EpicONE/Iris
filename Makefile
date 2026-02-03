@@ -1,58 +1,88 @@
-.PHONY: all up down db-load app migrate-up migrate-down integration helper-compose-up migrate-helper-compose-up lint reset
+.PHONY: all up down reset local test postgres app_logs postgres_logs lint .env .env.example help
+.POSIX:
+.SILENT:
 
--include .env
+-include .env.example .env
 
-all: up 
+all: up
 
-up: local-compose db-load migrate-up app
-
-local-compose:
-	@docker compose -f docker-compose.yaml up -d postgres
+up:	
+	if [ ! -f .env ] && [ ! -f .env.example ]; then \
+		echo "Missing environment file: .env or .env.example is required."; \
+		exit 1; \
+	fi
+	if [ ! -f .env ]; then cat .env.example > .env; fi
+	if [ ! -f config.yaml ]; then cp ./configs/config.full.yaml ./config.yaml; fi
+	if [ ! -f docker-compose.yaml ]; then cp ./deployments/docker-compose.full.yaml ./docker-compose.yaml; fi
+	if [ ! -f Dockerfile ]; then cp ./deployments/Dockerfile ./Dockerfile; fi
+	docker compose up -d postgres redis app
+	rm -f Dockerfile
 
 down:
-	@docker compose -f docker-compose.yaml down
-	
-db-load:
-	@until docker exec postgres pg_isready -U ${DB_USER} > /dev/null 2>&1; do sleep 0.5; done
-
-app:
-	go run ./cmd/iris/main.go -o app
+	docker compose down 2>/dev/null || true 
+	rm -f Dockerfile docker-compose.yaml config.yaml
 
 reset:
 	docker volume rm iris_postgres_data
 
-postgres:
-	docker compose exec postgres psql -U ${DB_USER} -d iris-db
+local:
+	if [ ! -f .env ]; then cat .env.example > .env; fi 
+	if [ ! -f config.yaml ]; then cp ./configs/config.dev.yaml ./config.yaml; fi 
+	if [ ! -f docker-compose.yaml ]; then cp ./deployments/docker-compose.dev.yaml ./docker-compose.yaml; fi
+	docker compose up -d
+	until docker exec postgres pg_isready -U ${DB_USER} > /dev/null 2>&1; do sleep 0.5; done
+	$(MAKE) --no-print-directory migrate-up
+	bash -c 'trap "exit 0" INT; go run ./cmd/iris/main.go'
 
 migrate-up:
-	@for i in $$(seq 1 10); do \
+	for i in $$(seq 1 10); do \
 		migrate -path ./migrations -database "postgres://${DB_USER}:${DB_PASSWORD}@localhost:5433/iris-db?sslmode=disable" up && exit 0; \
 		echo "Retry $$i/10..."; sleep 1; \
 	done; exit 1
 
 migrate-down:
-	@migrate -path ./migrations -database "postgres://${DB_USER}:${DB_PASSWORD}@localhost:5433/iris-db?sslmode=disable" down
+	migrate -path ./migrations -database "postgres://${DB_USER}:${DB_PASSWORD}@localhost:5433/iris-db?sslmode=disable" down
 
 test:
-	@go test -cover ./internal/handler/v1/...
-	@go test -cover ./internal/service/impl/...
-	@$(MAKE) integration --no-print-directory
+	if [ ! -f .env ]; then cat .env.example > .env; fi 
+	if [ ! -f config.yaml ]; then cp ./configs/config.test.yaml ./config.yaml; fi 
+	if [ ! -f docker-compose.yaml ]; then cp ./deployments/docker-compose.test.yaml ./docker-compose.yaml; fi
+	docker compose -f docker-compose.yaml up -d postgres-test
+	until docker exec postgres-test pg_isready -U ${DB_USER} -d postgres-test > /dev/null 2>&1; do sleep 0.5; done
+	echo "Running tests, please be patient (≈2 min)"
+	docker compose -f docker-compose.yaml run --rm app-test > .temp 2>/dev/null
+	cat .temp; rm -f .temp
+	docker compose -f docker-compose.yaml down -v > /dev/null 2>&1
+	rm -f docker-compose.yaml config.yaml .env
 
-integration: migrate-helper-compose-up
-	@go test ./internal/repository/postgres -cover
-	@docker compose -f docker-compose.yaml stop postgres-test > /dev/null 2>&1
-	@docker compose -f docker-compose.yaml rm -f postgres-test > /dev/null 2>&1
+postgres:
+	docker compose exec postgres psql -U ${DB_USER} -d iris-db
 
-helper-compose-up:
-	@docker compose -f docker-compose.yaml up -d postgres-test > /dev/null 2>&1
+app_logs:
+	docker compose logs --tail 5 app
 
-helper-db-load:
-	@until docker exec postgres-test pg_isready -U ${DB_USER} > /dev/null 2>&1; do sleep 0.5; done
-
-migrate-helper-compose-up: helper-compose-up helper-db-load
-	@for i in $$(seq 1 10); do \
-		migrate -path ./migrations -database "postgres://${DB_USER}:${DB_PASSWORD}@localhost:5434/chronos_test?sslmode=disable" up > /dev/null 2>&1 && exit 0; sleep 1; \
-	done; exit 1
+postgres_logs:
+	docker compose logs --tail 5 postgres
 
 lint:
 	golangci-lint run ./...
+
+.env:
+	@:
+
+help:
+	@echo " ———————————————————————————————————————————————————————————————————————————————————— "
+	@echo "| up             | Start all services (postgres, app) in background                  |"
+	@echo "| down           | Stop and remove all containers, networks, and temporary files     |"
+	@echo "| reset          | Remove postgres Docker volume                                     |"
+	@echo "| local          | Start local dev environment (go 1.25.1 required)                  |"
+	@echo "| test           | Run unit and integration tests                                    |"
+	@echo "| postgres       | Open psql shell inside postgres container                         |"
+	@echo "| app_logs       | Show last 5 lines of app logs                                     |"
+	@echo "| postgres_logs  | Show last 5 lines of postgres logs                                |"
+	@echo "| lint           | Run golangci-lint                                                 |"
+	@echo " ———————————————————————————————————————————————————————————————————————————————————— "
+
+.DEFAULT:
+	@echo " No rule to make target '$@'. Available make targets:"
+	@$(MAKE) --no-print-directory help

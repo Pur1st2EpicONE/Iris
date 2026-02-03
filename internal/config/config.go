@@ -12,7 +12,7 @@ type Config struct {
 	Logger  Logger  `mapstructure:"logger"`
 	Server  Server  `mapstructure:"server"`
 	Storage Storage `mapstructure:"database"`
-	//Cache   Cache   `mapstructure:"cache"`
+	Cache   Cache   `mapstructure:"cache"`
 }
 
 type Logger struct {
@@ -28,13 +28,6 @@ type Server struct {
 	ShutdownTimeout time.Duration `mapstructure:"shutdown_timeout"`
 }
 
-type Producer struct {
-	Attempts        int           `mapstructure:"attempts"`
-	Delay           time.Duration `mapstructure:"delay"`
-	Backoff         float64       `mapstructure:"backoff"`
-	MessageQueueTTL time.Duration `mapstructure:"message_queue_ttl"`
-}
-
 type Storage struct {
 	Host               string        `mapstructure:"host"`
 	Port               string        `mapstructure:"port"`
@@ -45,36 +38,34 @@ type Storage struct {
 	MaxOpenConns       int           `mapstructure:"max_open_conns"`
 	MaxIdleConns       int           `mapstructure:"max_idle_conns"`
 	ConnMaxLifetime    time.Duration `mapstructure:"conn_max_lifetime"`
-	RecoverLimit       int           `mapstructure:"recover_limit"`
-	QueryRetryStrategy Producer      `mapstructure:"query_retry_strategy"`
-	RetentionStrategy  Retention     `mapstructure:"retention_strategy"`
+	QueryRetryStrategy RetryStrategy `mapstructure:"query_retry_strategy"`
 }
 
-type Retention struct {
-	Canceled  time.Duration
-	Completed time.Duration
-	Failed    time.Duration
+type Cache struct {
+	Host           string        `mapstructure:"host"`
+	Port           string        `mapstructure:"port"`
+	Password       string        `mapstructure:"password"`
+	MaxMemory      string        `mapstructure:"max_memory"`
+	Policy         string        `mapstructure:"policy"`
+	RetryStrategy  RetryStrategy `mapstructure:"retry_strategy"`
+	ExpirationTime time.Duration `mapstructure:"expiration_time"`
 }
 
-// type Cache struct {
-// 	Host           string        `mapstructure:"host"`
-// 	Port           string        `mapstructure:"port"`
-// 	Password       string        `mapstructure:"password"`
-// 	MaxMemory      string        `mapstructure:"max_memory"`
-// 	Policy         string        `mapstructure:"policy"`
-// 	RetryStrategy  Producer      `mapstructure:"retry_strategy"`
-// 	ExpirationTime time.Duration `mapstructure:"expiration_time"`
-// }
+type RetryStrategy struct {
+	Attempts int           `mapstructure:"attempts"`
+	Delay    time.Duration `mapstructure:"delay"`
+	Backoff  float64       `mapstructure:"backoff"`
+}
 
 func Load() (Config, error) {
 
 	cfg := wbf.New()
 
-	if err := cfg.LoadEnvFiles(".env"); err != nil {
+	if err := cfg.LoadConfigFiles("./config.yaml"); err != nil {
 		return Config{}, err
 	}
 
-	if err := cfg.LoadConfigFiles("./config.yaml"); err != nil {
+	if err := cfg.LoadEnvFiles(".env"); err != nil && !cfg.GetBool("docker") {
 		return Config{}, err
 	}
 
@@ -95,6 +86,6 @@ func loadEnvs(conf *Config) {
 	conf.Storage.Username = os.Getenv("DB_USER")
 	conf.Storage.Password = os.Getenv("DB_PASSWORD")
 
-	//conf.Cache.Password = os.Getenv("REDIS_PASSWORD")
+	conf.Cache.Password = os.Getenv("REDIS_PASSWORD")
 
 }
