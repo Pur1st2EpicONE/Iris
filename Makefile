@@ -1,4 +1,4 @@
-.PHONY: all up down reset local test postgres app_logs postgres_logs lint .env .env.example help
+.PHONY: all up down reset local migrate-up migrate-down test postgres redis app_logs postgres_logs redis_logs lint .env .env.example help
 .POSIX:
 .SILENT:
 
@@ -44,25 +44,35 @@ migrate-down:
 	migrate -path ./migrations -database "postgres://${DB_USER}:${DB_PASSWORD}@localhost:5433/iris-db?sslmode=disable" down
 
 test:
-	if [ ! -f .env ]; then cat .env.example > .env; fi 
-	if [ ! -f config.yaml ]; then cp ./configs/config.test.yaml ./config.yaml; fi 
+	if [ ! -f .env ]; then cat .env.example > .env; fi
+	if [ ! -f config.yaml ]; then cp ./configs/config.test.yaml ./config.yaml; fi
 	if [ ! -f docker-compose.yaml ]; then cp ./deployments/docker-compose.test.yaml ./docker-compose.yaml; fi
 	docker compose -f docker-compose.yaml up -d postgres-test
-	until docker exec postgres-test pg_isready -U ${DB_USER} -d postgres-test > /dev/null 2>&1; do sleep 0.5; done
+	until docker exec postgres-test pg_isready -U ${DB_USER} -d iris_test > /dev/null 2>&1; do sleep 0.5; done
+	for i in $$(seq 1 10); do \
+		migrate -path ./migrations -database "postgres://${DB_USER}:${DB_PASSWORD}@localhost:5433/iris_test?sslmode=disable" up && break; \
+		echo "Retry $$i/10..."; sleep 1; \
+	done
 	echo "Running tests, please be patient (≈2 min)"
 	docker compose -f docker-compose.yaml run --rm app-test > .temp 2>/dev/null
 	cat .temp; rm -f .temp
 	docker compose -f docker-compose.yaml down -v > /dev/null 2>&1
-	rm -f docker-compose.yaml config.yaml .env
+	rm -f docker-compose.yaml config.yaml
 
 postgres:
 	docker compose exec postgres psql -U ${DB_USER} -d iris-db
+
+redis:
+	docker compose exec redis redis-cli
 
 app_logs:
 	docker compose logs --tail 5 app
 
 postgres_logs:
 	docker compose logs --tail 5 postgres
+
+redis_logs:
+	docker compose logs --tail 5 redis
 
 lint:
 	golangci-lint run ./...
@@ -72,14 +82,18 @@ lint:
 
 help:
 	@echo " ———————————————————————————————————————————————————————————————————————————————————— "
-	@echo "| up             | Start all services (postgres, app) in background                  |"
+	@echo "| up             | Start all services (postgres, redis, app) in background           |"
 	@echo "| down           | Stop and remove all containers, networks, and temporary files     |"
 	@echo "| reset          | Remove postgres Docker volume                                     |"
 	@echo "| local          | Start local dev environment (go 1.25.1 required)                  |"
+	@echo "| migrate-up     | Apply all database migrations                                     |"
+	@echo "| migrate-down   | Rollback all database migrations                                  |"
 	@echo "| test           | Run unit and integration tests                                    |"
 	@echo "| postgres       | Open psql shell inside postgres container                         |"
+	@echo "| redis          | Open redis-cli inside redis container                             |"
 	@echo "| app_logs       | Show last 5 lines of app logs                                     |"
 	@echo "| postgres_logs  | Show last 5 lines of postgres logs                                |"
+	@echo "| redis_logs     | Show last 5 lines of redis logs                                   |"
 	@echo "| lint           | Run golangci-lint                                                 |"
 	@echo " ———————————————————————————————————————————————————————————————————————————————————— "
 

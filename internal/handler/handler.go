@@ -8,8 +8,6 @@ import (
 	"github.com/wb-go/wbf/ginext"
 )
 
-const templatePath = "web/templates/index.html"
-
 func NewHandler(service service.Service) http.Handler {
 
 	handler := ginext.New("")

@@ -57,7 +57,7 @@ func (s *Storage) GetAnalytics(ctx context.Context, shortURL string) (*models.Vi
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	for rows.Next() {
 
