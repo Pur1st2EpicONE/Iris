@@ -11,15 +11,14 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/gin-gonic/gin"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
+	"github.com/wb-go/wbf/ginext"
 )
 
-func setupRouter(handler *Handler) *gin.Engine {
+func setupRouter(handler *Handler) *ginext.Engine {
 
-	gin.SetMode(gin.TestMode)
-	r := gin.New()
+	r := ginext.New("")
 
 	v1 := r.Group("/v1")
 	{
