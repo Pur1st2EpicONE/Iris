@@ -10,7 +10,6 @@ services:
       - "8080:8080"
     volumes:
       - ./config.yaml:/app/config.yaml:ro
-      - ./migrations:/app/migrations:ro
       - ./logs:/app/logs
     restart: on-failure
   postgres:
