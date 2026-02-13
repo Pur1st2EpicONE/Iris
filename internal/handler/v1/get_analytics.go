@@ -8,7 +8,9 @@ func (h *Handler) GetAnalytics(c *ginext.Context) {
 	data, err := h.service.GetAnalytics(c.Request.Context(), c.Param("short_url"))
 	if err != nil {
 		respondError(c, err)
-	} else {
-		respondOK(c, data)
+		return
 	}
+
+	respondOK(c, data)
+
 }
