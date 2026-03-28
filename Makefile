@@ -15,7 +15,7 @@ up:
 	if [ ! -f config.yaml ]; then cp ./configs/config.full.yaml ./config.yaml; fi
 	if [ ! -f docker-compose.yaml ]; then cp ./deployments/docker-compose.full.yaml ./docker-compose.yaml; fi
 	if [ ! -f Dockerfile ]; then cp ./deployments/Dockerfile ./Dockerfile; fi
-	docker compose up -d postgres redis app
+	COMPOSE_BAKE=true docker compose up -d postgres redis app
 	rm -f Dockerfile
 
 down:
@@ -29,7 +29,7 @@ local:
 	if [ ! -f .env ]; then cat .env.example > .env; fi 
 	if [ ! -f config.yaml ]; then cp ./configs/config.dev.yaml ./config.yaml; fi 
 	if [ ! -f docker-compose.yaml ]; then cp ./deployments/docker-compose.dev.yaml ./docker-compose.yaml; fi
-	docker compose up -d
+	COMPOSE_BAKE=true docker compose up -d
 	until docker exec postgres pg_isready -U ${DB_USER} > /dev/null 2>&1; do sleep 0.5; done
 	$(MAKE) --no-print-directory migrate-up
 	bash -c 'trap "exit 0" INT; go run ./cmd/iris/main.go'
@@ -47,7 +47,7 @@ test:
 	if [ ! -f .env ]; then cat .env.example > .env; fi
 	if [ ! -f config.yaml ]; then cp ./configs/config.test.yaml ./config.yaml; fi
 	if [ ! -f docker-compose.yaml ]; then cp ./deployments/docker-compose.test.yaml ./docker-compose.yaml; fi
-	docker compose -f docker-compose.yaml up -d postgres-test
+	COMPOSE_BAKE=true docker compose -f docker-compose.yaml up -d postgres-test
 	until docker exec postgres-test pg_isready -U ${DB_USER} -d iris_test > /dev/null 2>&1; do sleep 0.5; done
 	for i in $$(seq 1 10); do \
 		migrate -path ./migrations -database "postgres://${DB_USER}:${DB_PASSWORD}@localhost:5433/iris_test?sslmode=disable" up && break; \
@@ -66,13 +66,13 @@ redis:
 	docker compose exec redis redis-cli
 
 app_logs:
-	docker compose logs --tail 5 app
+	docker compose logs --tail 10 app
 
 postgres_logs:
-	docker compose logs --tail 5 postgres
+	docker compose logs --tail 10 postgres
 
 redis_logs:
-	docker compose logs --tail 5 redis
+	docker compose logs --tail 10 redis
 
 lint:
 	golangci-lint run ./...
@@ -91,9 +91,9 @@ help:
 	@echo "| test           | Run unit and integration tests                                    |"
 	@echo "| postgres       | Open psql shell inside postgres container                         |"
 	@echo "| redis          | Open redis-cli inside redis container                             |"
-	@echo "| app_logs       | Show last 5 lines of app logs                                     |"
-	@echo "| postgres_logs  | Show last 5 lines of postgres logs                                |"
-	@echo "| redis_logs     | Show last 5 lines of redis logs                                   |"
+	@echo "| app_logs       | Show last 10 lines of app logs                                    |"
+	@echo "| postgres_logs  | Show last 10 lines of postgres logs                               |"
+	@echo "| redis_logs     | Show last 10 lines of redis logs                                  |"
 	@echo "| lint           | Run golangci-lint                                                 |"
 	@echo " ———————————————————————————————————————————————————————————————————————————————————— "
 

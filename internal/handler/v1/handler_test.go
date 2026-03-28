@@ -5,11 +5,14 @@ import (
 	"Iris/internal/models"
 	mockService "Iris/internal/service/mocks"
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
@@ -38,7 +41,7 @@ func TestHandler_Shorten(t *testing.T) {
 
 	mockService := mockService.NewMockService(ctrl)
 
-	h := &Handler{service: mockService}
+	h := NewHandler(mockService)
 	router := setupRouter(h)
 
 	t.Run("invalid json", func(t *testing.T) {
@@ -80,7 +83,7 @@ func TestHandler_Redirect(t *testing.T) {
 
 	mockService := mockService.NewMockService(ctrl)
 
-	h := &Handler{service: mockService}
+	h := NewHandler(mockService)
 	router := setupRouter(h)
 
 	t.Run("link not found", func(t *testing.T) {
@@ -92,13 +95,34 @@ func TestHandler_Redirect(t *testing.T) {
 	})
 
 	t.Run("success redirect", func(t *testing.T) {
+
+		var wg sync.WaitGroup
+		wg.Add(1)
+
 		mockService.EXPECT().GetOriginalURL(gomock.Any(), models.ShortLink{ShortURL: "abc"}).Return("https://google.com", nil)
-		mockService.EXPECT().SaveVisit(gomock.Any(), "abc", gomock.Any()).AnyTimes()
+		mockService.EXPECT().SaveVisit(gomock.Any(), "abc", gomock.Any()).DoAndReturn(func(ctx context.Context, shortURL, userAgent string) error {
+			defer wg.Done()
+			return nil
+		})
+
 		req := httptest.NewRequest(http.MethodGet, "/v1/abc", nil)
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
+
 		require.Equal(t, http.StatusFound, w.Code)
 		require.Equal(t, "https://google.com", w.Header().Get("Location"))
+
+		done := make(chan struct{})
+		go func() {
+			wg.Wait()
+			close(done)
+		}()
+
+		select {
+		case <-done:
+		case <-time.After(2 * time.Second):
+			t.Error("Timeout waiting for goroutine")
+		}
 	})
 
 }
@@ -110,7 +134,7 @@ func TestHandler_GetAnalytics(t *testing.T) {
 
 	mockService := mockService.NewMockService(ctrl)
 
-	h := &Handler{service: mockService}
+	h := NewHandler(mockService)
 	router := setupRouter(h)
 
 	stats := &models.VisitStats{

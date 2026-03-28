@@ -39,15 +39,15 @@ func TestMain(m *testing.M) {
 		},
 	}
 
-	log, _ := logger.NewLogger(config.Logger{Debug: true})
+	logger, _ := logger.NewLogger(config.Logger{Debug: true})
 
 	db, err := dbpg.New(fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
 		cfg.Host, cfg.Port, cfg.Username, cfg.Password, cfg.DBName, cfg.SSLMode), nil, &dbpg.Options{})
 	if err != nil {
-		log.LogFatal("postgres-test — failed to connect to test DB", err, "layer", "repository.postgres-test")
+		logger.LogFatal("postgres-test — failed to connect to test DB", err, "layer", "repository.postgres-test")
 	}
 
-	testStorage = postgres.NewStorage(log, cfg, db)
+	testStorage = postgres.NewStorage(logger, cfg, db)
 
 	exitCode := m.Run()
 	testStorage.Close()
@@ -159,6 +159,7 @@ func TestGetAnalytics(t *testing.T) {
 		OriginalURL: "https://example.com/analytics",
 		Alias:       fmt.Sprintf("analytics-%d", time.Now().UnixNano()),
 	}
+
 	_ = testStorage.SaveWithAlias(ctx, link)
 
 	_ = testStorage.SaveVisit(ctx, link.Alias, "UA1")

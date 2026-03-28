@@ -18,8 +18,7 @@ func (s *Service) GetAnalytics(ctx context.Context, shortURL string) (*models.Vi
 		return nil, err
 	}
 
-	s.logger.LogError("service — failed to get analytics",
-		err, "short link", shortURL, "layer", "service.impl")
+	s.logger.LogError("service — failed to get analytics", err, "short link", shortURL, "layer", "service.impl")
 
 	return nil, err
 
