@@ -1,3 +1,5 @@
+// Package redis provides a Redis-based implementation of the Cache interface.
+// It handles storing and retrieving values with retry and expiration logic.
 package redis
 
 import (
@@ -32,11 +34,10 @@ func Connect(logger logger.Logger, config config.Cache) (*Cache, error) {
 
 // SetLink sets the value for a given key in Redis with expiration and retry strategy.
 func (c *Cache) SetLink(ctx context.Context, key string, value any) error {
-	return c.client.SetWithExpirationAndRetry(ctx, retry.Strategy{
-		Attempts: c.config.RetryStrategy.Attempts,
-		Delay:    c.config.RetryStrategy.Delay,
-		Backoff:  c.config.RetryStrategy.Backoff},
-		key, value, c.config.ExpirationTime)
+	return c.client.SetWithExpirationAndRetry(ctx,
+		retry.Strategy(c.config.RetryStrategy),
+		key, value, c.config.ExpirationTime,
+	)
 }
 
 // GetLink retrieves the value for a given key from Redis and refreshes its expiration.

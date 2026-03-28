@@ -1,3 +1,4 @@
+// Package errs defines reusable error variables for the Iris application.
 package errs
 
 import "errors"

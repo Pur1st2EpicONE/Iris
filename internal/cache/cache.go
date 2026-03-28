@@ -9,10 +9,11 @@ import (
 	"context"
 )
 
+// Cache defines the interface for a caching layer used by the application.
 type Cache interface {
-	SetLink(ctx context.Context, key string, value any) error
-	GetLink(ctx context.Context, key string) (string, error)
-	Close()
+	SetLink(ctx context.Context, key string, value any) error // SetLink sets the value for the given key in the cache.
+	GetLink(ctx context.Context, key string) (string, error)  // GetLink retrieves the value for the given key from the cache.
+	Close()                                                   // Close closes the cache connection and releases resources.
 }
 
 // Connect creates a new Cache instance (currently Redis) using the provided logger and configuration.

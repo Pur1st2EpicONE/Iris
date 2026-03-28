@@ -1,3 +1,5 @@
+// Package app wires application components, provides lifecycle management
+// and exposes the entry point for booting and running the service.
 package app
 
 import (
@@ -17,16 +19,21 @@ import (
 	"github.com/wb-go/wbf/dbpg"
 )
 
+// App represents the application's composition root.
+// It holds long-lived resources (logger, DB, cache, server) and
+// the context/cancel function used for graceful shutdown.
 type App struct {
-	logger  logger.Logger
-	logFile *os.File
-	server  server.Server
-	ctx     context.Context
-	cancel  context.CancelFunc
-	cache   cache.Cache
-	storage repository.Storage
+	logger  logger.Logger      // logger is the structured logger used across application layers.
+	logFile *os.File           // logFile is the file handle where logs are written.
+	server  server.Server      // server is the HTTP server instance.
+	ctx     context.Context    // ctx is the root context used to coordinate shutdown across components.
+	cancel  context.CancelFunc // cancel cancels the root context when a shutdown signal is received.
+	cache   cache.Cache        // cache is the cache layer used by services (e.g., redis).
+	storage repository.Storage // storage is the data storage abstraction backed by the database.
 }
 
+// Boot loads configuration, initializes logger, connects to database and cache,
+// wires all components and returns a fully constructed *App ready to run.
 func Boot() *App {
 
 	config, err := config.Load()
@@ -50,6 +57,8 @@ func Boot() *App {
 
 }
 
+// connectDB establishes a database connection using repository.ConnectDB
+// and logs successful connection.
 func connectDB(logger logger.Logger, config config.Storage) (*dbpg.DB, error) {
 	db, err := repository.ConnectDB(config)
 	if err != nil {
@@ -59,6 +68,8 @@ func connectDB(logger logger.Logger, config config.Storage) (*dbpg.DB, error) {
 	return db, nil
 }
 
+// connectCache establishes a connection to the cache backend using cache.Connect
+// and logs successful connection.
 func connectCache(logger logger.Logger, config config.Cache) (cache.Cache, error) {
 	cache, err := cache.Connect(logger, config)
 	if err != nil {
@@ -68,6 +79,8 @@ func connectCache(logger logger.Logger, config config.Cache) (cache.Cache, error
 	return cache, nil
 }
 
+// wireApp constructs application components (storage, service, handler,
+// server), creates a cancellable context and returns the assembled *App.
 func wireApp(db *dbpg.DB, cache cache.Cache, logger logger.Logger, logFile *os.File, config config.Config) *App {
 
 	ctx, cancel := newContext(logger)
@@ -88,6 +101,9 @@ func wireApp(db *dbpg.DB, cache cache.Cache, logger logger.Logger, logFile *os.F
 
 }
 
+// newContext creates a context that is cancelled when the process
+// receives SIGINT or SIGTERM. It also logs receipt of the signal
+// and initiates graceful shutdown by calling the cancel function.
 func newContext(logger logger.Logger) (context.Context, context.CancelFunc) {
 
 	sigCh := make(chan os.Signal, 1)
@@ -96,7 +112,11 @@ func newContext(logger logger.Logger) (context.Context, context.CancelFunc) {
 
 	go func() {
 		sig := <-sigCh
-		logger.LogInfo("app — received signal "+sig.String()+", initiating graceful shutdown", "layer", "app")
+		sigString := sig.String()
+		if sig == syscall.SIGTERM {
+			sigString = "terminate" // sig.String() returns the SIGTERM string in past tense for some reason
+		}
+		logger.LogInfo("app — received signal "+sigString+", initiating graceful shutdown", "layer", "app")
 		cancel()
 	}()
 
@@ -104,6 +124,8 @@ func newContext(logger logger.Logger) (context.Context, context.CancelFunc) {
 
 }
 
+// Run starts the server in background goroutine and blocks
+// until the application's context is cancelled. After cancellation it invokes Stop.
 func (a *App) Run() {
 
 	go func() {
@@ -118,6 +140,9 @@ func (a *App) Run() {
 
 }
 
+// Stop performs an orderly shutdown of application components: it shuts down
+// the server, waits for background work to finish, closes cache and
+// storage, and closes the log file if it is not os.Stdout.
 func (a *App) Stop() {
 
 	a.server.Shutdown()
