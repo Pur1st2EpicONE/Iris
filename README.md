@@ -26,6 +26,9 @@
 - **App** — the central orchestrator of the system.  
   Responsible for application bootstrap and lifecycle management. It loads configuration, initializes logger, database and Redis cache, wires all components (storage, service, handler, server) together, and controls startup and graceful shutdown using a shared context.
 
+- **Server** — the HTTP server layer.  
+  Configurable Ginext-based server with read/write timeouts, header limits, and graceful shutdown support.
+
 - **Handler** — HTTP request processing layer.  
   Registers API v1 routes and serves the static web frontend.
 
