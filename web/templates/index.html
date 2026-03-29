@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Iris UI</title>
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body>
+    <div class="center-wrapper">
+      <div class="header">
+        <div class="logo">
+          <span class="logo-icon">I</span>
+          <h1>Iris</h1>
+        </div>
+        <p class="subtitle">yet another URL shortener</p>
+      </div>
+
+      <form id="shorten-form" class="main-form">
+        <div class="field">
+          <label for="original-url">Original URL</label>
+          <input
+            type="url"
+            id="original-url"
+            placeholder="https://your-long-link.com/very/long/path"
+            required
+          />
+        </div>
+        <div class="field">
+          <label for="alias">Custom alias (optional)</label>
+          <input
+            type="text"
+            id="alias"
+            placeholder="my-custom-code"
+            maxlength="31"
+          />
+        </div>
+        <button type="submit" class="btn-primary">Shorten</button>
+      </form>
+
+      <div id="shorten-result" class="result-box hidden">
+        <label>Your short link</label>
+        <div id="short-link-display" class="short-link-box"></div>
+        <div class="result-actions">
+          <button onclick="copyShortLink()" class="btn-secondary">Copy</button>
+          <a id="visit-link" target="_blank" class="btn-secondary">Visit</a>
+          <button onclick="viewAnalyticsFromResult()" class="btn-secondary">
+            Analytics
+          </button>
+        </div>
+      </div>
+
+      <h2 class="section-title">Check Analytics</h2>
+      <div class="analytics-box">
+        <div class="flex-field">
+          <input
+            id="analytics-short-input"
+            type="text"
+            placeholder="Short code (e.g., abc123)"
+          />
+          <select id="analytics-group-select">
+            <option value="">All visits</option>
+            <option value="day">By day</option>
+            <option value="month">By month</option>
+            <option value="user_agent">By User Agent</option>
+          </select>
+          <button onclick="fetchAnalyticsDirect()" class="btn-primary">
+            Show
+          </button>
+        </div>
+
+        <div id="analytics-result" class="hidden">
+          <div class="stats-header">
+            <div>
+              <span class="label">Total visits</span>
+              <div id="total-visits" class="total-count">0</div>
+            </div>
+            <button onclick="closeAnalyticsResult()" class="btn-small">
+              ×
+            </button>
+          </div>
+          <table class="visits-table">
+            <thead>
+              <tr>
+                <th>Visits</th>
+                <th>Time</th>
+                <th>User Agent</th>
+              </tr>
+            </thead>
+            <tbody id="visits-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div
+      id="modal"
+      class="modal hidden"
+      onclick="if (event.target.id === 'modal') hideModal();"
+    >
+      <div class="modal-content" onclick="event.stopImmediatePropagation()">
+        <div class="modal-header">
+          <div>
+            <small>Analytics for</small>
+            <h3 id="modal-short"></h3>
+          </div>
+          <button onclick="hideModal()" class="close-btn">×</button>
+        </div>
+        <div id="modal-total" class="modal-total">0</div>
+        <small class="modal-subtitle">visits</small>
+        <table class="visits-table">
+          <thead>
+            <tr>
+              <th>Visits</th>
+              <th>Time</th>
+              <th>User Agent</th>
+            </tr>
+          </thead>
+          <tbody id="modal-table-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <script src="/static/script.js"></script>
+  </body>
+</html>
