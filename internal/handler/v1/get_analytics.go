@@ -5,12 +5,19 @@ import (
 )
 
 func (h *Handler) GetAnalytics(c *ginext.Context) {
-	data, err := h.service.GetAnalytics(c.Request.Context(), c.Param("short_url"))
+
+	groupBy, err := parseQuery(c)
 	if err != nil {
 		respondError(c, err)
 		return
 	}
 
-	respondOK(c, data)
+	analytics, err := h.service.GetAnalytics(c.Request.Context(), groupBy, c.Param("short_url"))
+	if err != nil {
+		respondError(c, err)
+		return
+	}
+
+	respondOK(c, analytics)
 
 }

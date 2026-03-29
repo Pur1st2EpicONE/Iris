@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
 	wbf "github.com/wb-go/wbf/config"
 	"github.com/wb-go/wbf/dbpg"
 )
@@ -59,129 +60,163 @@ func TestMain(m *testing.M) {
 func TestSaveOriginal(t *testing.T) {
 
 	ctx := context.Background()
-	originalURL := "https://example.com"
+	originalURL := fmt.Sprintf("https://example.com/%d", time.Now().UnixNano())
 
 	id, err := testStorage.SaveOriginal(ctx, originalURL)
-	if err != nil {
-		t.Fatalf("SaveOriginal failed: %v", err)
-	}
-
-	if id <= 0 {
-		t.Fatalf("expected id > 0, got %d", id)
-	}
+	require.NoError(t, err)
+	require.Greater(t, id, int64(0))
 
 }
 
 func TestSaveShort(t *testing.T) {
 
 	ctx := context.Background()
-	originalURL := "https://example.com/short"
+	originalURL := fmt.Sprintf("https://example.com/short-%d", time.Now().UnixNano())
 
-	id, _ := testStorage.SaveOriginal(ctx, originalURL)
-	shortLink := fmt.Sprintf("short-%d", time.Now().UnixNano())
+	id, err := testStorage.SaveOriginal(ctx, originalURL)
+	require.NoError(t, err)
 
-	err := testStorage.SaveShort(ctx, id, shortLink)
-	if err != nil {
-		t.Fatalf("SaveShort failed: %v", err)
-	}
+	shortLink := fmt.Sprintf("short-%d", id)
+	err = testStorage.SaveShort(ctx, id, shortLink)
+	require.NoError(t, err)
+
+	got, err := testStorage.GetOriginalURL(ctx, shortLink)
+	require.NoError(t, err)
+	require.Equal(t, originalURL, got)
 
 }
 
 func TestSaveWithAlias(t *testing.T) {
 
 	ctx := context.Background()
+	alias := fmt.Sprintf("alias-%d", time.Now().UnixNano())
 	link := models.Link{
-		OriginalURL: "https://example.com/alias",
-		Alias:       fmt.Sprintf("alias-%d", time.Now().UnixNano()),
+		OriginalURL: fmt.Sprintf("https://example.com/%s", alias),
+		Alias:       alias,
 	}
 
-	if err := testStorage.SaveWithAlias(ctx, link); err != nil {
-		t.Fatalf("SaveWithAlias failed: %v", err)
-	}
-
+	require.NoError(t, testStorage.SaveWithAlias(ctx, link))
 	err := testStorage.SaveWithAlias(ctx, link)
-	if err != errs.ErrAliasExists {
-		t.Fatalf("expected ErrAliasExists, got %v", err)
-	}
+	require.ErrorIs(t, err, errs.ErrAliasExists)
 
 }
 
 func TestGetOriginalURL(t *testing.T) {
 
 	ctx := context.Background()
+	alias := fmt.Sprintf("get-%d", time.Now().UnixNano())
 	link := models.Link{
-		OriginalURL: "https://example.com/get",
-		Alias:       fmt.Sprintf("get-%d", time.Now().UnixNano()),
+		OriginalURL: fmt.Sprintf("https://example.com/%s", alias),
+		Alias:       alias,
 	}
-	_ = testStorage.SaveWithAlias(ctx, link)
+
+	require.NoError(t, testStorage.SaveWithAlias(ctx, link))
 
 	url, err := testStorage.GetOriginalURL(ctx, link.Alias)
-	if err != nil {
-		t.Fatalf("GetOriginalURL failed: %v", err)
-	}
-
-	if url != link.OriginalURL {
-		t.Fatalf("expected %s, got %s", link.OriginalURL, url)
-	}
+	require.NoError(t, err)
+	require.Equal(t, link.OriginalURL, url)
 
 	_, err = testStorage.GetOriginalURL(ctx, "non-existent")
-	if err != errs.ErrLinkNotFound {
-		t.Fatalf("expected ErrLinkNotFound, got %v", err)
-	}
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "no rows in result set")
 
 }
 
 func TestSaveVisit(t *testing.T) {
 
 	ctx := context.Background()
+	alias := fmt.Sprintf("visit-%d", time.Now().UnixNano())
 	link := models.Link{
-		OriginalURL: "https://example.com/visit",
-		Alias:       fmt.Sprintf("visit-%d", time.Now().UnixNano()),
+		OriginalURL: fmt.Sprintf("https://example.com/%s", alias),
+		Alias:       alias,
 	}
-	_ = testStorage.SaveWithAlias(ctx, link)
+
+	require.NoError(t, testStorage.SaveWithAlias(ctx, link))
 
 	err := testStorage.SaveVisit(ctx, link.Alias, "GoTest-Agent")
-	if err != nil {
-		t.Fatalf("SaveVisit failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	err = testStorage.SaveVisit(ctx, "non-existent", "GoTest-Agent")
-	if err != errs.ErrLinkNotFound {
-		t.Fatalf("expected ErrLinkNotFound, got %v", err)
-	}
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "no rows in result set")
 
+}
+
+func countByUA(stats *models.VisitStats, ua string) int {
+	count := 0
+	for _, entry := range stats.Data {
+		if entry.UserAgent == ua {
+			count += entry.Count
+		}
+	}
+	return count
 }
 
 func TestGetAnalytics(t *testing.T) {
 
 	ctx := context.Background()
+	alias := fmt.Sprintf("analytics-%d", time.Now().UnixNano())
 	link := models.Link{
-		OriginalURL: "https://example.com/analytics",
-		Alias:       fmt.Sprintf("analytics-%d", time.Now().UnixNano()),
+		OriginalURL: fmt.Sprintf("https://example.com/%s", alias),
+		Alias:       alias,
 	}
 
-	_ = testStorage.SaveWithAlias(ctx, link)
+	require.NoError(t, testStorage.SaveWithAlias(ctx, link))
 
-	_ = testStorage.SaveVisit(ctx, link.Alias, "UA1")
-	_ = testStorage.SaveVisit(ctx, link.Alias, "UA2")
-	_ = testStorage.SaveVisit(ctx, link.Alias, "UA1")
+	require.NoError(t, testStorage.SaveVisit(ctx, link.Alias, "UA1"))
+	time.Sleep(1 * time.Millisecond)
+	require.NoError(t, testStorage.SaveVisit(ctx, link.Alias, "UA2"))
+	time.Sleep(1 * time.Millisecond)
+	require.NoError(t, testStorage.SaveVisit(ctx, link.Alias, "UA1"))
 
-	stats, err := testStorage.GetAnalytics(ctx, link.Alias)
-	if err != nil {
-		t.Fatalf("GetAnalytics failed: %v", err)
+	stats, err := testStorage.GetAnalytics(ctx, "", link.Alias)
+	require.NoError(t, err)
+	require.Equal(t, 3, stats.Count)
+	require.Equal(t, 2, countByUA(stats, "UA1"))
+	require.Equal(t, 1, countByUA(stats, "UA2"))
+
+	statsUA, err := testStorage.GetAnalytics(ctx, "user_agent", link.Alias)
+	require.NoError(t, err)
+	require.Equal(t, 3, statsUA.Count)
+
+	countUA1 := 0
+	countUA2 := 0
+
+	for _, e := range statsUA.Data {
+		switch e.UserAgent {
+		case "UA1":
+			countUA1 += e.Count
+		case "UA2":
+			countUA2 += e.Count
+		}
 	}
 
-	if stats.Count != 3 {
-		t.Fatalf("expected 3 visits, got %d", stats.Count)
+	require.Equal(t, 2, countUA1)
+	require.Equal(t, 1, countUA2)
+
+	statsDay, err := testStorage.GetAnalytics(ctx, "day", link.Alias)
+	require.NoError(t, err)
+	require.Equal(t, 3, statsDay.Count)
+	require.Len(t, statsDay.Data, 3)
+
+	for _, e := range statsDay.Data {
+		require.NotEmpty(t, e.Key)
 	}
 
-	if stats.ByUserAgent["UA1"] != 2 || stats.ByUserAgent["UA2"] != 1 {
-		t.Fatalf("user agent counts mismatch: %v", stats.ByUserAgent)
+	statsMonth, err := testStorage.GetAnalytics(ctx, "month", link.Alias)
+	require.NoError(t, err)
+	require.Equal(t, 3, statsMonth.Count)
+	require.Len(t, statsMonth.Data, 3)
+
+	for _, e := range statsMonth.Data {
+		require.NotEmpty(t, e.Key)
 	}
 
-	_, err = testStorage.GetAnalytics(ctx, "non-existent")
-	if err != errs.ErrLinkNotFound {
-		t.Fatalf("expected ErrLinkNotFound, got %v", err)
-	}
+	_, err = testStorage.GetAnalytics(ctx, "invalid", link.Alias)
+	require.ErrorIs(t, err, errs.ErrInvalidGroupBy)
+
+	_, err = testStorage.GetAnalytics(ctx, "", "non-existent")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "no rows in result set")
 
 }

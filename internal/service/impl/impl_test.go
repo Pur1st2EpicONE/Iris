@@ -7,6 +7,7 @@ import (
 	"Iris/internal/models"
 	mockStorage "Iris/internal/repository/mocks"
 	"context"
+	"database/sql"
 	"errors"
 	"strings"
 	"testing"
@@ -30,29 +31,39 @@ func TestService_GetAnalytics(t *testing.T) {
 	service := NewService(mockLogger, mockCache, mockStorage)
 
 	stats := &models.VisitStats{
-		Count:       3,
-		ByUserAgent: map[string]int{"UA1": 2, "UA2": 1},
+		Count: 3,
+		Data: []models.VisitEntry{
+			{Key: "2026-02-01", UserAgent: "UA1", Time: "2026-02-01", Count: 2},
+			{Key: "2026-02-02", UserAgent: "UA2", Time: "2026-02-02", Count: 1},
+		},
 	}
 
-	t.Run("success", func(t *testing.T) {
-		mockStorage.EXPECT().GetAnalytics(ctx, shortURL).Return(stats, nil)
-		res, err := service.GetAnalytics(ctx, shortURL)
+	t.Run("success default groupBy", func(t *testing.T) {
+		mockStorage.EXPECT().GetAnalytics(ctx, "", shortURL).Return(stats, nil)
+		res, err := service.GetAnalytics(ctx, "", shortURL)
+		require.NoError(t, err)
+		require.Equal(t, stats, res)
+	})
+
+	t.Run("success groupBy=day", func(t *testing.T) {
+		mockStorage.EXPECT().GetAnalytics(ctx, "day", shortURL).Return(stats, nil)
+		res, err := service.GetAnalytics(ctx, "day", shortURL)
 		require.NoError(t, err)
 		require.Equal(t, stats, res)
 	})
 
 	t.Run("link not found", func(t *testing.T) {
-		mockStorage.EXPECT().GetAnalytics(ctx, shortURL).Return(nil, errs.ErrLinkNotFound)
-		res, err := service.GetAnalytics(ctx, shortURL)
+		mockStorage.EXPECT().GetAnalytics(ctx, "", shortURL).Return(nil, sql.ErrNoRows)
+		res, err := service.GetAnalytics(ctx, "", shortURL)
 		require.ErrorIs(t, err, errs.ErrLinkNotFound)
 		require.Nil(t, res)
 	})
 
 	t.Run("storage error", func(t *testing.T) {
 		dbErr := errors.New("db down")
-		mockStorage.EXPECT().GetAnalytics(ctx, shortURL).Return(nil, dbErr)
+		mockStorage.EXPECT().GetAnalytics(ctx, "", shortURL).Return(nil, dbErr)
 		mockLogger.EXPECT().LogError("service — failed to get analytics", dbErr, "short link", shortURL, "layer", "service.impl")
-		res, err := service.GetAnalytics(ctx, shortURL)
+		res, err := service.GetAnalytics(ctx, "", shortURL)
 		require.Error(t, err)
 		require.Nil(t, res)
 	})
@@ -94,7 +105,7 @@ func TestService_GetOriginalURL(t *testing.T) {
 
 	t.Run("cache miss, DB not found", func(t *testing.T) {
 		mockCache.EXPECT().GetLink(ctx, link.ShortURL).Return("", errors.New("cache miss"))
-		mockStorage.EXPECT().GetOriginalURL(ctx, link.ShortURL).Return("", errs.ErrLinkNotFound)
+		mockStorage.EXPECT().GetOriginalURL(ctx, link.ShortURL).Return("", sql.ErrNoRows)
 		res, err := service.GetOriginalURL(ctx, link)
 		require.ErrorIs(t, err, errs.ErrLinkNotFound)
 		require.Empty(t, res)
@@ -155,6 +166,7 @@ func TestService_SaveVisit(t *testing.T) {
 func TestService_ShortenLink(t *testing.T) {
 
 	ctx := context.Background()
+
 	controller := gomock.NewController(t)
 	defer controller.Finish()
 
@@ -231,12 +243,11 @@ func TestService_ShortenLink(t *testing.T) {
 	t.Run("SaveShort error", func(t *testing.T) {
 		link := models.Link{OriginalURL: "https://example.com"}
 		id := int64(1)
-		shortLink := encode(id + offset)
 		dbErr := errors.New("db save short error")
 		mockStorage.EXPECT().SaveOriginal(ctx, link.OriginalURL).Return(id, nil)
-		mockStorage.EXPECT().SaveShort(ctx, id, shortLink).Return(dbErr)
+		mockStorage.EXPECT().SaveShort(ctx, id, gomock.Any()).Return(dbErr)
 		mockLogger.EXPECT().LogError("service — failed to save short link", gomock.Any(),
-			"link", link.OriginalURL, "short link", shortLink, "layer", "service.impl")
+			"link", link.OriginalURL, "short link", gomock.Any(), "layer", "service.impl")
 		_, err := service.ShortenLink(ctx, link)
 		require.ErrorIs(t, err, dbErr)
 	})

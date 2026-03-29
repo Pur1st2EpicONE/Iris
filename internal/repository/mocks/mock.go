@@ -48,18 +48,18 @@ func (mr *MockStorageMockRecorder) Close() *gomock.Call {
 }
 
 // GetAnalytics mocks base method.
-func (m *MockStorage) GetAnalytics(ctx context.Context, shortURL string) (*models.VisitStats, error) {
+func (m *MockStorage) GetAnalytics(ctx context.Context, groupBy, shortURL string) (*models.VisitStats, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetAnalytics", ctx, shortURL)
+	ret := m.ctrl.Call(m, "GetAnalytics", ctx, groupBy, shortURL)
 	ret0, _ := ret[0].(*models.VisitStats)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetAnalytics indicates an expected call of GetAnalytics.
-func (mr *MockStorageMockRecorder) GetAnalytics(ctx, shortURL interface{}) *gomock.Call {
+func (mr *MockStorageMockRecorder) GetAnalytics(ctx, groupBy, shortURL interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAnalytics", reflect.TypeOf((*MockStorage)(nil).GetAnalytics), ctx, shortURL)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAnalytics", reflect.TypeOf((*MockStorage)(nil).GetAnalytics), ctx, groupBy, shortURL)
 }
 
 // GetOriginalURL mocks base method.

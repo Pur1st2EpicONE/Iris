@@ -17,7 +17,7 @@ type Storage interface {
 	SaveShort(ctx context.Context, id int64, shortURL string) error
 	GetOriginalURL(ctx context.Context, shortURL string) (string, error)
 	SaveVisit(ctx context.Context, shortURL string, userAgent string) error
-	GetAnalytics(ctx context.Context, shortURL string) (*models.VisitStats, error)
+	GetAnalytics(ctx context.Context, groupBy string, shortURL string) (*models.VisitStats, error)
 	Close()
 }
 

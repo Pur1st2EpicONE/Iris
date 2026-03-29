@@ -14,12 +14,8 @@ func (s *Storage) SaveOriginal(ctx context.Context, originalURL string) (int64, 
 	VALUES ($1)
 	RETURNING id`
 
-	row, err := s.db.QueryRowWithRetry(ctx, retry.Strategy{
-		Attempts: s.config.QueryRetryStrategy.Attempts,
-		Delay:    s.config.QueryRetryStrategy.Delay,
-		Backoff:  s.config.QueryRetryStrategy.Backoff},
+	row, err := s.db.QueryRowWithRetry(ctx, retry.Strategy(s.config.QueryRetryStrategy),
 		query, originalURL)
-
 	if err != nil {
 		return 0, err
 	}

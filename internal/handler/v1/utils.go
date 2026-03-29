@@ -4,9 +4,23 @@ import (
 	"Iris/internal/errs"
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/wb-go/wbf/ginext"
 )
+
+func parseQuery(c *ginext.Context) (string, error) {
+
+	groupBy := strings.ToLower(strings.TrimSpace(c.Query("group_by")))
+
+	switch groupBy {
+	case "", "day", "month", "user_agent":
+		return groupBy, nil
+	default:
+		return "", errs.ErrInvalidGroupBy
+	}
+
+}
 
 func respondOK(c *ginext.Context, response any) {
 	c.JSON(http.StatusOK, ginext.H{"result": response})
@@ -26,6 +40,7 @@ func mapErrorToStatus(err error) (int, string) {
 		errors.Is(err, errs.ErrInvalidOriginalURL),
 		errors.Is(err, errs.ErrOriginalURLScheme),
 		errors.Is(err, errs.ErrOriginalURLHost),
+		errors.Is(err, errs.ErrInvalidGroupBy),
 		errors.Is(err, errs.ErrAliasTooLong),
 		errors.Is(err, errs.ErrAliasInvalidChars):
 		return http.StatusBadRequest, err.Error()

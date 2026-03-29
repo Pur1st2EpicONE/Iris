@@ -14,11 +14,8 @@ func (s *Storage) SaveShort(ctx context.Context, id int64, shortLink string) err
 	SET short_link = $1
 	WHERE id = $2`
 
-	_, err := s.db.ExecWithRetry(ctx, retry.Strategy{
-		Attempts: s.config.QueryRetryStrategy.Attempts,
-		Delay:    s.config.QueryRetryStrategy.Delay,
-		Backoff:  s.config.QueryRetryStrategy.Backoff,
-	}, query, shortLink, id)
+	_, err := s.db.ExecWithRetry(ctx, retry.Strategy(s.config.QueryRetryStrategy),
+		query, shortLink, id)
 
 	return err
 

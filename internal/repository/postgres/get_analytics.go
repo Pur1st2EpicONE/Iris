@@ -4,75 +4,128 @@ import (
 	"Iris/internal/errs"
 	"Iris/internal/models"
 	"context"
-	"database/sql"
-	"errors"
+	"fmt"
 
 	"github.com/wb-go/wbf/retry"
 )
 
-func (s *Storage) GetAnalytics(ctx context.Context, shortURL string) (*models.VisitStats, error) {
+func (s *Storage) GetAnalytics(ctx context.Context, groupBy string, shortURL string) (*models.VisitStats, error) {
 
-	row, err := s.db.QueryRowWithRetry(ctx, retry.Strategy{
-		Attempts: s.config.QueryRetryStrategy.Attempts,
-		Delay:    s.config.QueryRetryStrategy.Delay,
-		Backoff:  s.config.QueryRetryStrategy.Backoff}, `
-
-		SELECT id
-		FROM links
-		WHERE short_link = $1`,
-
-		shortURL)
+	linkID, err := s.getLinkID(ctx, shortURL)
 	if err != nil {
 		return nil, err
 	}
 
+	if groupBy == "" {
+		return s.getTotalCount(ctx, linkID)
+	}
+	return s.getStats(ctx, linkID, groupBy)
+
+}
+
+func (s *Storage) getLinkID(ctx context.Context, shortURL string) (int64, error) {
+
+	row, err := s.db.QueryRowWithRetry(ctx, retry.Strategy(s.config.QueryRetryStrategy), `
+		
+	SELECT id
+	FROM links
+	WHERE short_link = $1
+	
+	`, shortURL)
+	if err != nil {
+		return 0, err
+	}
+
 	var linkID int64
 	if err := row.Scan(&linkID); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, errs.ErrLinkNotFound
-		}
-		return nil, err
+		return 0, err
 	}
 
-	stats := &models.VisitStats{
-		ByUserAgent: make(map[string]int),
-		ByDay:       make(map[string]int),
-		ByMonth:     make(map[string]int),
-	}
+	return linkID, nil
 
-	rows, err := s.db.QueryWithRetry(ctx, retry.Strategy{
-		Attempts: s.config.QueryRetryStrategy.Attempts,
-		Delay:    s.config.QueryRetryStrategy.Delay,
-		Backoff:  s.config.QueryRetryStrategy.Backoff}, `
+}
+
+func (s *Storage) getTotalCount(ctx context.Context, linkID int64) (*models.VisitStats, error) {
+
+	rows, err := s.db.QueryWithRetry(ctx, retry.Strategy(s.config.QueryRetryStrategy), `
 		
-	SELECT
-	COUNT(*) OVER() AS total_count, 
-	to_char(visited_at, 'YYYY-MM-DD') AS day, 
-	to_char(visited_at, 'YYYY-MM') AS month, 
-	user_agent
+	SELECT visited_at, user_agent
 	FROM visits
-	WHERE link_id = $1`,
-
-		linkID)
+	WHERE link_id = $1
+	ORDER BY visited_at
+	
+	`, linkID)
 	if err != nil {
 		return nil, err
 	}
 	defer func() { _ = rows.Close() }()
 
+	stats := &models.VisitStats{Data: []models.VisitEntry{}}
+
 	for rows.Next() {
-
-		var total int
-		var day, month, ua string
-
-		if err := rows.Scan(&total, &day, &month, &ua); err != nil {
+		var visitedAt, userAgent string
+		if err := rows.Scan(&visitedAt, &userAgent); err != nil {
 			return nil, err
 		}
+		stats.Data = append(stats.Data, models.VisitEntry{
+			Key:       "",
+			UserAgent: userAgent,
+			Time:      visitedAt,
+			Count:     1,
+		})
+		stats.Count++
+	}
 
-		stats.Count = total
-		stats.ByDay[day]++
-		stats.ByMonth[month]++
-		stats.ByUserAgent[ua]++
+	return stats, nil
 
+}
+
+func (s *Storage) getStats(ctx context.Context, linkID int64, groupBy string) (*models.VisitStats, error) {
+
+	var groupExpr string
+
+	switch groupBy {
+	case "day":
+		groupExpr = "to_char(visited_at, 'YYYY-MM-DD')"
+	case "month":
+		groupExpr = "to_char(visited_at, 'YYYY-MM')"
+	case "user_agent":
+		groupExpr = "user_agent"
+	default:
+		return nil, errs.ErrInvalidGroupBy
+	}
+
+	query := fmt.Sprintf(`
+
+	SELECT visited_at, user_agent, %s AS key
+	FROM visits
+	WHERE link_id = $1
+	ORDER BY visited_at
+	
+	`, groupExpr)
+
+	rows, err := s.db.QueryWithRetry(ctx, retry.Strategy(s.config.QueryRetryStrategy), query, linkID)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+
+	stats := &models.VisitStats{Data: []models.VisitEntry{}}
+
+	for rows.Next() {
+		var visitedAt string
+		var userAgent string
+		var key string
+		if err := rows.Scan(&visitedAt, &userAgent, &key); err != nil {
+			return nil, err
+		}
+		stats.Data = append(stats.Data, models.VisitEntry{
+			Key:       key,
+			UserAgent: userAgent,
+			Time:      visitedAt,
+			Count:     1,
+		})
+		stats.Count++
 	}
 
 	return stats, nil

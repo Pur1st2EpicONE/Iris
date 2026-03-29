@@ -4,18 +4,19 @@ import (
 	"Iris/internal/errs"
 	"Iris/internal/models"
 	"context"
+	"database/sql"
 	"errors"
 )
 
-func (s *Service) GetAnalytics(ctx context.Context, shortURL string) (*models.VisitStats, error) {
+func (s *Service) GetAnalytics(ctx context.Context, groupBy string, shortURL string) (*models.VisitStats, error) {
 
-	stats, err := s.storage.GetAnalytics(ctx, shortURL)
+	analytics, err := s.storage.GetAnalytics(ctx, groupBy, shortURL)
 	if err == nil {
-		return stats, nil
+		return analytics, nil
 	}
 
-	if errors.Is(err, errs.ErrLinkNotFound) {
-		return nil, err
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, errs.ErrLinkNotFound
 	}
 
 	s.logger.LogError("service — failed to get analytics", err, "short link", shortURL, "layer", "service.impl")

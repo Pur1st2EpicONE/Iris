@@ -13,7 +13,7 @@ type Service interface {
 	ShortenLink(ctx context.Context, link models.Link) (string, error)
 	GetOriginalURL(ctx context.Context, link models.ShortLink) (string, error)
 	SaveVisit(ctx context.Context, shortURL string, userAgent string)
-	GetAnalytics(ctx context.Context, shortURL string) (*models.VisitStats, error)
+	GetAnalytics(ctx context.Context, groupBy string, shortURL string) (*models.VisitStats, error)
 }
 
 func NewService(logger logger.Logger, cache cache.Cache, storage repository.Storage) Service {

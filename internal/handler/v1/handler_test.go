@@ -36,10 +36,10 @@ func setupRouter(handler *Handler) *ginext.Engine {
 
 func TestHandler_Shorten(t *testing.T) {
 
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+	controller := gomock.NewController(t)
+	defer controller.Finish()
 
-	mockService := mockService.NewMockService(ctrl)
+	mockService := mockService.NewMockService(controller)
 
 	h := NewHandler(mockService)
 	router := setupRouter(h)
@@ -78,10 +78,10 @@ func TestHandler_Shorten(t *testing.T) {
 
 func TestHandler_Redirect(t *testing.T) {
 
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+	controller := gomock.NewController(t)
+	defer controller.Finish()
 
-	mockService := mockService.NewMockService(ctrl)
+	mockService := mockService.NewMockService(controller)
 
 	h := NewHandler(mockService)
 	router := setupRouter(h)
@@ -129,31 +129,32 @@ func TestHandler_Redirect(t *testing.T) {
 
 func TestHandler_GetAnalytics(t *testing.T) {
 
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+	controller := gomock.NewController(t)
+	defer controller.Finish()
 
-	mockService := mockService.NewMockService(ctrl)
+	mockService := mockService.NewMockService(controller)
 
 	h := NewHandler(mockService)
 	router := setupRouter(h)
 
 	stats := &models.VisitStats{
 		Count: 12,
-		ByDay: map[string]int{
-			"2026-02-01": 5,
-			"2026-02-02": 7,
-		},
-		ByMonth: map[string]int{
-			"2026-02": 12,
-		},
-		ByUserAgent: map[string]int{
-			"Chrome": 8,
-			"Safari": 4,
+		Data: []models.VisitEntry{
+			{Key: "2026-02-01", UserAgent: "Chrome", Time: "2026-02-01", Count: 5},
+			{Key: "2026-02-02", UserAgent: "Safari", Time: "2026-02-02", Count: 7},
 		},
 	}
 
+	t.Run("invalid group_by", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/v1/abc/analytics?group_by=invalid", nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		require.Equal(t, http.StatusBadRequest, w.Code)
+		require.Contains(t, w.Body.String(), errs.ErrInvalidGroupBy.Error())
+	})
+
 	t.Run("link not found", func(t *testing.T) {
-		mockService.EXPECT().GetAnalytics(gomock.Any(), "abc").Return(nil, errs.ErrLinkNotFound)
+		mockService.EXPECT().GetAnalytics(gomock.Any(), "", "abc").Return(nil, errs.ErrLinkNotFound)
 		req := httptest.NewRequest(http.MethodGet, "/v1/abc/analytics", nil)
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
@@ -161,24 +162,48 @@ func TestHandler_GetAnalytics(t *testing.T) {
 	})
 
 	t.Run("internal error", func(t *testing.T) {
-		mockService.EXPECT().GetAnalytics(gomock.Any(), "abc").Return(nil, errors.New("db down"))
+		mockService.EXPECT().GetAnalytics(gomock.Any(), "", "abc").Return(nil, errors.New("db down"))
 		req := httptest.NewRequest(http.MethodGet, "/v1/abc/analytics", nil)
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
 		require.Equal(t, http.StatusInternalServerError, w.Code)
 	})
 
-	t.Run("success", func(t *testing.T) {
-		mockService.EXPECT().GetAnalytics(gomock.Any(), "abc").Return(stats, nil)
+	t.Run("success default group_by", func(t *testing.T) {
+		mockService.EXPECT().GetAnalytics(gomock.Any(), "", "abc").Return(stats, nil)
 		req := httptest.NewRequest(http.MethodGet, "/v1/abc/analytics", nil)
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
+
 		require.Equal(t, http.StatusOK, w.Code)
-		body := w.Body.String()
-		require.Contains(t, body, `"count":12`)
-		require.Contains(t, body, `"by_day"`)
-		require.Contains(t, body, `"by_month"`)
-		require.Contains(t, body, `"by_user_agent"`)
+
+		var resp struct {
+			Result models.VisitStats `json:"result"`
+		}
+		err := json.Unmarshal(w.Body.Bytes(), &resp)
+		require.NoError(t, err)
+		require.Equal(t, 12, resp.Result.Count)
+		require.Len(t, resp.Result.Data, 2)
+		require.Equal(t, "Chrome", resp.Result.Data[0].UserAgent)
+		require.Equal(t, "Safari", resp.Result.Data[1].UserAgent)
+	})
+
+	t.Run("success with group_by=day", func(t *testing.T) {
+		mockService.EXPECT().GetAnalytics(gomock.Any(), "day", "abc").Return(stats, nil)
+		req := httptest.NewRequest(http.MethodGet, "/v1/abc/analytics?group_by=day", nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		require.Equal(t, http.StatusOK, w.Code)
+
+		var resp struct {
+			Result models.VisitStats `json:"result"`
+		}
+
+		err := json.Unmarshal(w.Body.Bytes(), &resp)
+		require.NoError(t, err)
+		require.Equal(t, 12, resp.Result.Count)
+		require.Len(t, resp.Result.Data, 2)
 	})
 
 }
