@@ -10,13 +10,13 @@ type ShortLink struct {
 }
 
 type VisitEntry struct {
-	Key       string
-	UserAgent string
-	Time      string
-	Count     int
+	Key       string `json:"key"`
+	UserAgent string `json:"user_agent"`
+	Time      string `json:"time"`
+	Count     int    `json:"count"`
 }
 
 type VisitStats struct {
-	Count int
-	Data  []VisitEntry
+	Count int          `json:"count"`
+	Data  []VisitEntry `json:"data"`
 }
