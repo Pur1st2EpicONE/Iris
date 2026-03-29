@@ -6,6 +6,8 @@ import (
 	"github.com/wb-go/wbf/retry"
 )
 
+// SaveOriginal inserts a new original URL into the links table and returns its generated ID.
+// Returns the ID of the newly created link or an error if the operation fails.
 func (s *Storage) SaveOriginal(ctx context.Context, originalURL string) (int64, error) {
 
 	query := `

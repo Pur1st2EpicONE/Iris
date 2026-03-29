@@ -11,6 +11,8 @@ import (
 	"github.com/wb-go/wbf/retry"
 )
 
+// SaveWithAlias inserts a new link with a custom alias (short link).
+// If the alias already exists, it returns errs.ErrAliasExists.
 func (s *Storage) SaveWithAlias(ctx context.Context, link models.Link) error {
 
 	query := `

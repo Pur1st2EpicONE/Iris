@@ -8,6 +8,8 @@ import (
 	"errors"
 )
 
+// GetAnalytics retrieves visit statistics for a short URL.
+// Returns ErrLinkNotFound if the short URL does not exist.
 func (s *Service) GetAnalytics(ctx context.Context, groupBy string, shortURL string) (*models.VisitStats, error) {
 
 	analytics, err := s.storage.GetAnalytics(ctx, groupBy, shortURL)

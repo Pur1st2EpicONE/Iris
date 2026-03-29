@@ -9,6 +9,8 @@ import (
 	"github.com/wb-go/wbf/retry"
 )
 
+// GetAnalytics retrieves visit statistics for a given short URL.
+// The groupBy parameter supports "day", "month", "user_agent", or "" for total count.
 func (s *Storage) GetAnalytics(ctx context.Context, groupBy string, shortURL string) (*models.VisitStats, error) {
 
 	linkID, err := s.getLinkID(ctx, shortURL)
@@ -23,6 +25,7 @@ func (s *Storage) GetAnalytics(ctx context.Context, groupBy string, shortURL str
 
 }
 
+// getLinkID retrieves the database ID for a given short URL.
 func (s *Storage) getLinkID(ctx context.Context, shortURL string) (int64, error) {
 
 	row, err := s.db.QueryRowWithRetry(ctx, retry.Strategy(s.config.QueryRetryStrategy), `
@@ -45,6 +48,7 @@ func (s *Storage) getLinkID(ctx context.Context, shortURL string) (int64, error)
 
 }
 
+// getTotalCount retrieves all visit records for the given link ID without grouping.
 func (s *Storage) getTotalCount(ctx context.Context, linkID int64) (*models.VisitStats, error) {
 
 	rows, err := s.db.QueryWithRetry(ctx, retry.Strategy(s.config.QueryRetryStrategy), `
@@ -80,6 +84,8 @@ func (s *Storage) getTotalCount(ctx context.Context, linkID int64) (*models.Visi
 
 }
 
+// getStats retrieves visit records for the given link ID grouped by the specified parameter.
+// Supported groupBy values are "day", "month", or "user_agent".
 func (s *Storage) getStats(ctx context.Context, linkID int64, groupBy string) (*models.VisitStats, error) {
 
 	var groupExpr string

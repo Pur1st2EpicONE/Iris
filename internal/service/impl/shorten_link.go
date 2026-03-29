@@ -11,6 +11,10 @@ import (
 
 const offset = 1000000
 
+// ShortenLink creates a short URL for the given original link.
+// If a custom alias is provided, it attempts to save the link with that alias.
+// Returns the generated short URL (or alias) and any error encountered.
+// Performs validation of the original URL and alias.
 func (s *Service) ShortenLink(ctx context.Context, link models.Link) (string, error) {
 
 	if err := validateLink(link); err != nil {
@@ -40,6 +44,9 @@ func (s *Service) ShortenLink(ctx context.Context, link models.Link) (string, er
 
 }
 
+// saveWithAlias saves a link using a custom alias.
+// Returns the alias if successful, or an error if the alias already exists
+// or if another storage error occurs.
 func (s *Service) saveWithAlias(ctx context.Context, link models.Link) (string, error) {
 
 	err := s.storage.SaveWithAlias(ctx, link)
@@ -57,6 +64,7 @@ func (s *Service) saveWithAlias(ctx context.Context, link models.Link) (string, 
 	return "", err
 }
 
+// encode converts an integer ID into a base62-encoded string used as a short URL.
 func encode(id int64) string {
 	return string(base62.FormatUint(uint64(id)))
 }

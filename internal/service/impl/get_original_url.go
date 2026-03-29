@@ -8,6 +8,9 @@ import (
 	"errors"
 )
 
+// GetOriginalURL retrieves the original URL for a given short link.
+// It first attempts to fetch the URL from the cache. If missing, it retrieves it from storage
+// and populates the cache. Returns ErrLinkNotFound if the short link does not exist.
 func (s *Service) GetOriginalURL(ctx context.Context, link models.ShortLink) (string, error) {
 
 	originalURL, err := s.cache.GetLink(ctx, link.ShortURL)

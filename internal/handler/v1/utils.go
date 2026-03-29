@@ -9,6 +9,7 @@ import (
 	"github.com/wb-go/wbf/ginext"
 )
 
+// parseQuery validates and returns the optional "group_by" query parameter.
 func parseQuery(c *ginext.Context) (string, error) {
 
 	groupBy := strings.ToLower(strings.TrimSpace(c.Query("group_by")))
@@ -22,10 +23,12 @@ func parseQuery(c *ginext.Context) (string, error) {
 
 }
 
+// respondOK sends a successful JSON response with status 200.
 func respondOK(c *ginext.Context, response any) {
 	c.JSON(http.StatusOK, ginext.H{"result": response})
 }
 
+// respondError sends an error response based on the type of error.
 func respondError(c *ginext.Context, err error) {
 	if err != nil {
 		status, msg := mapErrorToStatus(err)
@@ -33,6 +36,7 @@ func respondError(c *ginext.Context, err error) {
 	}
 }
 
+// mapErrorToStatus maps internal errors to HTTP status codes and messages.
 func mapErrorToStatus(err error) (int, string) {
 
 	switch {

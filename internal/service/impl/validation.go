@@ -6,6 +6,8 @@ import (
 	"net/url"
 )
 
+// validateLink checks that a Link's original URL and alias (if present) are valid.
+// Returns an error if any validation rule fails.
 func validateLink(link models.Link) error {
 
 	if err := validateOriginalURL(link.OriginalURL); err != nil {
@@ -22,6 +24,8 @@ func validateLink(link models.Link) error {
 
 }
 
+// validateOriginalURL verifies that the URL is parseable, has a supported scheme (http/https),
+// and contains a host. Returns appropriate errors from errs package.
 func validateOriginalURL(link string) error {
 
 	u, err := url.ParseRequestURI(link)
@@ -41,6 +45,8 @@ func validateOriginalURL(link string) error {
 
 }
 
+// validateAlias checks that the alias is at most 32 characters long
+// and contains only allowed characters (letters, digits, '-' or '_').
 func validateAlias(alias string) error {
 
 	if len(alias) > 32 {
@@ -57,6 +63,7 @@ func validateAlias(alias string) error {
 
 }
 
+// isAllowedAliasChar returns true if the rune is a valid character in a short link alias.
 func isAllowedAliasChar(r rune) bool {
 	return (r >= 'a' && r <= 'z') ||
 		(r >= 'A' && r <= 'Z') ||

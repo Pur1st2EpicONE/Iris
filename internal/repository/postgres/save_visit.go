@@ -6,6 +6,8 @@ import (
 	"github.com/wb-go/wbf/retry"
 )
 
+// SaveVisit records a visit for a short URL with the associated user agent.
+// It first resolves the short URL to a link ID, then inserts a visit record.
 func (s *Storage) SaveVisit(ctx context.Context, shortURL string, userAgent string) error {
 
 	selectQuery := `

@@ -11,6 +11,9 @@ import (
 
 const timeout = 5 * time.Second
 
+// Redirect handles GET /s/:short_url requests by redirecting the client
+// to the original URL associated with the short URL.
+// It also records the visit asynchronously.
 func (h *Handler) Redirect(c *ginext.Context) {
 
 	shortURL := c.Param("short_url")

@@ -1,3 +1,5 @@
+// Package handler provides HTTP handlers for the Iris application.
+// It sets up routes, static file serving, and HTML templates for the web interface.
 package handler
 
 import (

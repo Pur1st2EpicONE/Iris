@@ -7,6 +7,8 @@ import (
 	"github.com/wb-go/wbf/ginext"
 )
 
+// Shorten handles POST /shorten requests by creating a new shortened link.
+// It expects a JSON payload matching ShortenLinkDTO.
 func (h *Handler) Shorten(c *ginext.Context) {
 
 	var request ShortenLinkDTO

@@ -6,6 +6,8 @@ import (
 	"github.com/wb-go/wbf/retry"
 )
 
+// SaveShort updates the short link for a given link ID.
+// Returns an error if the update fails.
 func (s *Storage) SaveShort(ctx context.Context, id int64, shortLink string) error {
 
 	query := `

@@ -4,6 +4,9 @@ import (
 	"github.com/wb-go/wbf/ginext"
 )
 
+// GetAnalytics retrieves usage analytics for a given short URL. Optionally, results
+// can be grouped by the "group_by" query parameter, which supports the
+// following values: "", "day", "month", or "user_agent".
 func (h *Handler) GetAnalytics(c *ginext.Context) {
 
 	groupBy, err := parseQuery(c)

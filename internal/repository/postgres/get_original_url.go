@@ -6,6 +6,8 @@ import (
 	"github.com/wb-go/wbf/retry"
 )
 
+// GetOriginalURL retrieves the original URL corresponding to a given short link.
+// Returns the original URL as a string or an error if the short link does not exist.
 func (s *Storage) GetOriginalURL(ctx context.Context, shortLink string) (string, error) {
 
 	row, err := s.db.QueryRowWithRetry(ctx, retry.Strategy(s.config.QueryRetryStrategy), `
